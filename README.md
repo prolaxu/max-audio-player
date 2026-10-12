@@ -1,41 +1,87 @@
 # max-audio-player
 
-Vue 3 audio player that plays broken audio (bad headers, truncated or damaged
-WhatsApp/phone recordings) by repairing it in the browser with ffmpeg.wasm.
+[![npm](https://img.shields.io/npm/v/max-audio-player.svg)](https://www.npmjs.com/package/max-audio-player)
+[![license](https://img.shields.io/npm/l/max-audio-player.svg)](./LICENSE)
+
+Vue 3 audio player that plays **broken audio** (bad headers, truncated or
+damaged WhatsApp/phone recordings) by repairing it in the browser with
+[ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm). Healthy files play
+natively and never download ffmpeg.
+
+## Install
+
+```bash
+npm install max-audio-player
+```
+
+Requires Vue `^3.3`. `@ffmpeg/ffmpeg` and `@ffmpeg/util` are installed as dependencies.
+
+## Usage
 
 ```vue
 <script setup>
 import { MaxAudioPlayer } from 'max-audio-player'
 </script>
+
 <template>
-  <MaxAudioPlayer src="https://example.com/voice.mp4" />
+  <MaxAudioPlayer src="https://example.com/voice.mp4" autoplay @recovered="onFixed" />
 </template>
 ```
 
-Global: `app.use(MaxAudioPlayer)` then use `<MaxAudioPlayer src="…" />`.
+Global registration:
+
+```js
+import MaxAudioPlayer from 'max-audio-player'
+app.use(MaxAudioPlayer) // <MaxAudioPlayer src="…" />
+```
+
+## Vite setup (required)
+
+ffmpeg runs in a web worker that Vite's dependency optimizer breaks. Add to `vite.config.js`:
+
+```js
+export default {
+  optimizeDeps: { exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'] },
+}
+```
 
 ## How it works
-1. Plays the file natively (fast path, no ffmpeg downloaded).
+
+1. Plays the file natively (fast path).
 2. If the browser raises an error, downloads the bytes and repairs them with
    ffmpeg (`-err_detect ignore_err`), then plays the result as a blob URL.
+3. If repair fails, shows an error (with a CORS hint when the download is blocked).
 
 ## Props
-| prop | default | |
+
+| prop | default | description |
 |---|---|---|
 | `src` | required | audio URL |
-| `recover` | `'auto'` | `'auto'` / `'always'` (repair first) / `'never'` |
+| `recover` | `'auto'` | `'auto'`, `'always'` (repair first) or `'never'` |
 | `format` | `'mp3'` | repaired output: `mp3`, `wav`, `ogg` |
 | `autoplay`, `loop`, `controls`, `preload` | | passed to `<audio>` |
-| `coreBaseURL` | jsDelivr `@ffmpeg/core@0.12.6/dist/esm` | self-host the core here |
+| `coreBaseURL` | jsDelivr `@ffmpeg/core@0.12.6/dist/esm` | self-host the ffmpeg core here |
 | `fetchOptions` | | extra `fetch()` options for the repair download |
 | `showStatus` | `true` | built-in status text (or use the `status` slot) |
 
 Events: `status`, `ready`, `recovered(blobUrl)`, `error(err)`.
-Exposed: `audio`, `play()`, `pause()`.
+Exposed: `audio`, `play()`, `pause()`. Other attributes fall through to `<audio>`.
 
-## Notes
-- Repair needs the file to be downloadable with `fetch` (CORS). If the server
-  blocks it, host/proxy the file on your own origin.
-- Vite: add `optimizeDeps: { exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'] }`
-  to `vite.config.js`, otherwise the ffmpeg worker fails to load.
-- Utilities without the component: `recoverAudio(src)` returns a playable blob URL.
+## Utilities
+
+```js
+import { recoverAudio } from 'max-audio-player'
+const playableUrl = await recoverAudio('https://example.com/broken.m4a', { format: 'mp3' })
+```
+
+## Limitations
+
+- **CORS:** repair needs the file to be downloadable with `fetch`. If the host
+  blocks it, serve or proxy the file from your own origin.
+- **Expired links:** signed URLs (e.g. WhatsApp/Facebook CDN `oe=` links) that
+  have expired return 403/404 — there is nothing left to repair.
+- First repair downloads ~30 MB of ffmpeg core (cached afterwards).
+
+## License
+
+MIT
