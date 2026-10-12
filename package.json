@@ -5,16 +5,41 @@
   "type": "module",
   "main": "src/index.js",
   "module": "src/index.js",
-  "exports": { ".": "./src/index.js", "./recover": "./src/recover.js" },
-  "files": ["src"],
+  "exports": {
+    ".": "./src/index.js",
+    "./recover": "./src/recover.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
   "peerDependencies": {
     "vue": "^3.3.0"
   },
-  "peerDependenciesMeta": {},
   "dependencies": {
     "@ffmpeg/ffmpeg": "0.12.10",
     "@ffmpeg/util": "0.12.1"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "prolaxu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prolaxu/max-audio-player.git"
+  },
+  "homepage": "https://github.com/prolaxu/max-audio-player#readme",
+  "bugs": {
+    "url": "https://github.com/prolaxu/max-audio-player/issues"
+  },
+  "keywords": [
+    "vue",
+    "vue3",
+    "audio",
+    "player",
+    "ffmpeg",
+    "wasm",
+    "whatsapp",
+    "corrupted-audio"
+  ]
 }
