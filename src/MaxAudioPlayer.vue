@@ -18,6 +18,10 @@ const props = defineProps({
   coreBaseURL: String,
   /** extra options passed to fetch() when downloading for repair */
   fetchOptions: Object,
+  /** when true, CORS-blocked downloads retry through libcurl.js via the Wisp proxy */
+  enableWispProxy: Boolean,
+  /** Wisp proxy websocket URL (wss://...), required when enableWispProxy is set */
+  wispProxyUrl: String,
   /** show built-in status text */
   showStatus: { type: Boolean, default: true },
 })
@@ -58,6 +62,7 @@ async function repair() {
       format: props.format,
       coreBaseURL: props.coreBaseURL,
       fetchOptions: props.fetchOptions,
+      wispProxyUrl: props.enableWispProxy ? props.wispProxyUrl : undefined,
       signal: controller.signal,
       onStep: (s) => setStatus(s),
     })
@@ -68,7 +73,7 @@ async function repair() {
   } catch (e) {
     if (e.name === 'AbortError') return
     const hint = e instanceof TypeError
-      ? ' (the server probably blocks downloads from this site — CORS)'
+      ? ' (the server probably blocks downloads from this site — CORS; set `enable-wisp-proxy` and `wisp-proxy-url` to proxy via libcurl.js)'
       : ''
     setStatus('error', `Could not play or repair this audio: ${e.message}${hint}`)
     emit('error', e)

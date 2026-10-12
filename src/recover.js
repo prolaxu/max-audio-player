@@ -27,10 +27,44 @@ function getFFmpeg(coreBaseURL = DEFAULT_CORE_BASE) {
   return ffmpegPromise
 }
 
-export async function fetchBytes(src, init, signal) {
-  const res = await fetch(src, { ...init, signal })
+let libcurlPromise = null
+let libcurlWisp = null
+
+// libcurl.js tunnels the request over a Wisp websocket proxy, so the browser
+// never makes a cross-origin request and CORS does not apply.
+function getLibcurl(wispProxyUrl) {
+  if (!libcurlPromise || libcurlWisp !== wispProxyUrl) {
+    libcurlWisp = wispProxyUrl
+    libcurlPromise = (async () => {
+      const { libcurl } = await import('libcurl.js/bundled')
+      await libcurl.load_wasm()
+      libcurl.set_websocket(wispProxyUrl)
+      return libcurl
+    })().catch((e) => {
+      libcurlPromise = null // allow retry
+      throw e
+    })
+  }
+  return libcurlPromise
+}
+
+async function toBytes(res) {
   if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`)
   return new Uint8Array(await res.arrayBuffer())
+}
+
+/**
+ * Downloads `src`. A direct fetch() is tried first; if the browser blocks it
+ * (CORS surfaces as a TypeError) and `wispProxyUrl` is set, it retries via libcurl.js.
+ */
+export async function fetchBytes(src, init, signal, wispProxyUrl) {
+  try {
+    return await toBytes(await fetch(src, { ...init, signal }))
+  } catch (e) {
+    if (!wispProxyUrl || !(e instanceof TypeError)) throw e
+  }
+  const libcurl = await getLibcurl(wispProxyUrl)
+  return toBytes(await libcurl.fetch(src, { ...init, signal }))
 }
 
 export async function canDecode(bytes) {
@@ -89,12 +123,12 @@ export function repairWithFFmpeg(bytes, { format = 'mp3', coreBaseURL } = {}) {
 /**
  * Returns a blob: URL that the browser can play.
  * @param {string} src
- * @param {{format?: string, coreBaseURL?: string, fetchOptions?: RequestInit, signal?: AbortSignal, onStep?: (s: string) => void}} opts
+ * @param {{format?: string, coreBaseURL?: string, wispProxyUrl?: string, fetchOptions?: RequestInit, signal?: AbortSignal, onStep?: (s: string) => void}} opts
  */
 export async function recoverAudio(src, opts = {}) {
-  const { onStep = () => {}, fetchOptions, signal } = opts
+  const { onStep = () => {}, fetchOptions, signal, wispProxyUrl } = opts
   onStep('downloading')
-  const bytes = await fetchBytes(src, fetchOptions, signal)
+  const bytes = await fetchBytes(src, fetchOptions, signal, wispProxyUrl)
   onStep('repairing')
   const blob = await repairWithFFmpeg(bytes, opts)
   return URL.createObjectURL(blob)
