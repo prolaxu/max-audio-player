@@ -1,6 +1,6 @@
 {
   "name": "max-audio-player",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Vue 3 audio player that auto-recovers corrupted or unplayable audio (WhatsApp, truncated, bad headers) via ffmpeg.wasm",
   "type": "module",
   "main": "src/index.js",
