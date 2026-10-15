@@ -81,7 +81,7 @@ libcurl.js is LGPL-3.0-or-later.
 | `coreBaseURL` | jsDelivr `@ffmpeg/core@0.12.6/dist/esm` | self-host the ffmpeg core here |
 | `fetchOptions` | | extra `fetch()` options for the repair download |
 | `enableWispProxy` | `false` | retry CORS-blocked downloads through libcurl.js (needs `wispProxyUrl`) |
-| `wispProxyUrl` | | [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) proxy (`wss://…`). If the direct download is blocked by CORS, it is retried through [libcurl.js](https://libcurl.js.org/) |
+| `wispProxyUrl` | | [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) proxy URL (`wss://…`) used by `enableWispProxy` |
 | `showStatus` | `true` | built-in status text (or use the `status` slot) |
 
 Events: `status`, `ready`, `recovered(blobUrl)`, `error(err)`.
@@ -91,17 +91,21 @@ Exposed: `audio`, `play()`, `pause()`. Other attributes fall through to `<audio>
 
 ```js
 import { recoverAudio } from 'max-audio-player'
-const playableUrl = await recoverAudio('https://example.com/broken.m4a', { format: 'mp3' })
+const playableUrl = await recoverAudio('https://example.com/broken.m4a', {
+  format: 'mp3',
+  wispProxyUrl: 'wss://wisp.example.com/', // optional CORS fallback
+})
 ```
+
+`recoverAudio(src, opts)` accepts `format`, `coreBaseURL`, `wispProxyUrl`, `fetchOptions`,
+`signal` and `onStep`, and resolves to a blob URL. Lower-level helpers are also exported:
+`repairWithFFmpeg(bytes, opts)` and `canDecode(bytes)`.
 
 ## Limitations
 
-- **CORS:** repair needs the file to be downloadable. If the host blocks
-  `fetch`, set `enable-wisp-proxy` and `wisp-proxy-url` (a Wisp server, e.g. your own
-  [wisp-server-python](https://github.com/MercuryWorkshop/wisp-server-python)) and
-  the download is retried through libcurl.js, which tunnels TLS over a websocket
-  and so bypasses CORS. The proxy sees the destination host, not the decrypted
-  content. Without them, serve or proxy the file from your own origin.
+- **CORS:** repair needs the file to be downloadable. If the host blocks `fetch`, use the
+  [Wisp proxy](#bypassing-cors-with-a-wisp-proxy) fallback, or serve or proxy the file from
+  your own origin.
 - **Expired links:** signed URLs (e.g. WhatsApp/Facebook CDN `oe=` links) that
   have expired return 403/404 — there is nothing left to repair.
 - First repair downloads ~30 MB of ffmpeg core (cached afterwards).
